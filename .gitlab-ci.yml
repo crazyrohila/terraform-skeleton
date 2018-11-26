@@ -1,0 +1,92 @@
+image: "ljfranklin/terraform-resource"
+
+# Install dependencies
+before_script:
+  - apk add --update zip
+  - git status
+
+stages:
+  - build
+  - deploy
+  - destroy
+
+build-zip:
+  stage: build
+  tags:
+    - diversey
+    - innovation
+    - nodejs
+  only:
+    - master
+    - production
+  script:
+    - cd lambda-src && zip -r ../function.zip * && cd ../
+  artifacts:
+    paths:
+      - function.zip
+
+deploy-dev:
+  stage: deploy
+  tags:
+    - diversey
+    - innovation
+    - nodejs
+  only:
+    - master
+  script:
+    - export AWS_ACCESS_KEY_ID=$access_key
+    - export AWS_SECRET_ACCESS_KEY=$secret_key
+    - terraform init -backend-config="access_key=$access_key" -backend-config="secret_key=$secret_key" -backend-config="key=skeleton_lambda/$CI_COMMIT_REF_NAME/terraform.tfstate"
+    - terraform apply -var stage=dev -var-file=dev.tfvars -var foo_other="BAZ" -var account_id=$aws_account_id -var api_name="Skeleton API" -var resource_path="test-path" -auto-approve
+  artifacts:
+    paths:
+      - "."
+
+destroy-dev:
+  stage: destroy
+  tags:
+    - diversey
+    - innovation
+    - nodejs
+  only:
+    - master
+  script:
+    - export AWS_ACCESS_KEY_ID=$access_key
+    - export AWS_SECRET_ACCESS_KEY=$secret_key
+    # destroy single resource
+    - terraform destroy -target aws_lambda_function.skeleton_lambda -force
+    # destroy all resources
+    - terraform destroy -force
+
+deploy-prod:
+  stage: deploy
+  tags:
+    - diversey
+    - innovation
+    - nodejs
+  only:
+    - production
+  script:
+    - export AWS_ACCESS_KEY_ID=$access_key
+    - export AWS_SECRET_ACCESS_KEY=$secret_key
+    - terraform init -backend-config="access_key=$access_key" -backend-config="secret_key=$secret_key" -backend-config="key=skeleton_lambda/$CI_COMMIT_REF_NAME/terraform.tfstate"
+    - terraform apply -var stage=prod -var-file=dev.tfvars -var foo_other="BAZ" -var account_id=$aws_account_id -var api_name="Skeleton API" -var resource_path="test-path" -auto-approve
+  artifacts:
+    paths:
+      - "."
+
+destroy-prod:
+  stage: destroy
+  tags:
+    - diversey
+    - innovation
+    - nodejs
+  only:
+    - production
+  script:
+    - export AWS_ACCESS_KEY_ID=$access_key
+    - export AWS_SECRET_ACCESS_KEY=$secret_key
+    # destroy single resource
+    - terraform destroy -target aws_lambda_function.skeleton_lambda -force
+    # destroy all resources
+    - terraform destroy -force
